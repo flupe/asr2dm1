@@ -109,8 +109,8 @@ void read_node_entry(const struct fat32_node *node, uint32_t offset, size_t size
     uint32_t bytes_per_cluster = (uint32_t) node->driver->sectors_per_cluster*node->driver->bytes_per_sector;
     uint32_t current_offset = node->offset + offset;
 
-    assert(0); // TODO: remplacez-moi (première partie)
-    assert(0); // TODO: remplacez-moi (deuxième partie)
+    assert(0); // TODO: complete (première partie)
+    assert(0); // TODO: complete (deuxième partie)
 }
 
 /* Lit le nom d'un nœud et les éventuelles entrées LFN (Long File Name)
@@ -210,7 +210,7 @@ bool fat32_node_is_dir(const struct fat32_node *node) {
         return true;
     }
     else {
-        assert(0); // TODO: remplacez-moi
+        assert(0); // TODO: complete
     }
 }
 
@@ -266,7 +266,7 @@ struct fat32_node* fat32_driver_get_root_dir(const struct fat32_driver *driver) 
 }
 
 uint32_t get_content_cluster(const struct fat32_node *node) {
-    assert(0); // TODO: remplacez-moi
+    assert(0); // TODO: complete
 }
 
 struct fat32_node_list* fat32_node_get_children(const struct fat32_node *node) {
@@ -281,13 +281,13 @@ struct fat32_node_list* fat32_node_get_children(const struct fat32_node *node) {
 }
 
 struct fat32_node* fat32_node_get_path(const struct fat32_node *node, const char *path) {
-    assert(0); // TODO: remplacez-moi
+    assert(0); // TODO: complete
 }
 
 void fat32_node_read_to_fd(const struct fat32_node *node, FILE *fd) {
     uint32_t first_content_cluster = get_content_cluster(node);
 
-    uint32_t content_size; assert(0); // TODO: remplacez-moi
+    uint32_t content_size; assert(0); // TODO: complete
 
     uint32_t buffer_size = (uint32_t) (node->driver->bytes_per_sector*node->driver->sectors_per_cluster);
     char buffer[buffer_size];

@@ -16,7 +16,7 @@ uint8_t read_uint8(FILE *fd) {
 uint16_t read_uint16_littleendian(FILE *fd) {
     uint8_t buf[2];
     fread(&buf, 1, 2, fd);
-    return (uint16_t) (buf[0] | buf[1] << 1);
+    return (uint16_t) (buf[1] << 8 | buf[0]);
 }
 uint32_t read_uint32_littleendian(FILE *fd) {
     uint8_t buf[4];
