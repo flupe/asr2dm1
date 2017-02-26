@@ -1,0 +1,6 @@
+*.pdf
+*.tex
+*.swp
+*.o
+src/test_utils
+src/fat_cli
