@@ -2,5 +2,8 @@
 *.tex
 *.swp
 *.o
+*.aux
+*.dvi
+*.log
 src/test_utils
 src/fat_cli

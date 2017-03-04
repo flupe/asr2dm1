@@ -56,8 +56,8 @@ struct fat32_driver* fat32_driver_new(const char *image_name) {
     driver->nb_sectors = read_uint32_littleendian(fd); // 32
     driver->sectors_per_fat = read_uint32_littleendian(fd); // 36
 
-    fseek(fd, 50, SEEK_SET);
-    driver->first_cluster_root = read_uint16_littleendian(fd); // 50
+    fseek(fd, 44, SEEK_SET);
+    driver->first_cluster_root = read_uint16_littleendian(fd); // 44
 
 #ifdef DEBUG
     fprintf(stderr, "Bytes per sector: %d\n", driver->bytes_per_sector);
@@ -84,17 +84,21 @@ void fat32_driver_free(struct fat32_driver *driver) {
 
 
 uint32_t next_cluster_index(const struct fat32_driver *driver, uint32_t cluster_index) {
-    assert(0); // TODO: complete
+    uint32_t pos = (uint32_t) (driver->nb_reserved_sectors * (uint32_t) driver->bytes_per_sector + cluster_index * 4);
+    fseek(driver->fd, pos, SEEK_SET);
+    return read_uint32_littleendian(driver->fd);
 }
 
 uint32_t get_cluster_sector(const struct fat32_driver *driver, uint32_t cluster_index) {
-    assert(0); // TODO: complete
+    return driver->nb_reserved_sectors + driver->sectors_per_fat * driver->nb_fats + (uint32_t) driver->sectors_per_cluster * (cluster_index - 2);
 }
 
 void read_in_cluster(const struct fat32_driver *driver, uint32_t cluster, uint32_t offset, size_t size, uint8_t *buf) {
     assert(offset+size <= driver->bytes_per_sector*driver->sectors_per_cluster);
 
-    assert(0); // TODO: complete
+    uint32_t pos = get_cluster_sector(driver, cluster) * driver->bytes_per_sector + offset;
+    fseek(driver->fd, pos, SEEK_SET); 
+    fread(buf, 1, size, driver->fd);
 }
 
 /* Lit une partie de l'entrée correspondant au nœud 'node'.
@@ -106,11 +110,30 @@ void read_node_entry(const struct fat32_node *node, uint32_t offset, size_t size
     assert(!node->is_root);
 
     uint32_t cluster = node->first_cluster;
-    uint32_t bytes_per_cluster = (uint32_t) node->driver->sectors_per_cluster*node->driver->bytes_per_sector;
+    uint32_t bytes_per_cluster = (uint32_t) node->driver->sectors_per_cluster * node->driver->bytes_per_sector;
     uint32_t current_offset = node->offset + offset;
 
-    assert(0); // TODO: complete (première partie)
-    assert(0); // TODO: complete (deuxième partie)
+    while (current_offset > bytes_per_cluster) {
+      current_offset -= bytes_per_cluster;
+      cluster++;
+    }
+
+    if (current_offset + size >= bytes_per_cluster) {
+      read_in_cluster(node->driver, cluster, current_offset, bytes_per_cluster - current_offset, buf);
+      buf += bytes_per_cluster - current_offset;
+      size += current_offset - bytes_per_cluster;
+      cluster  = next_cluster_index(node->driver, cluster);
+      current_offset = 0;
+
+      while (size > bytes_per_cluster) {
+        read_in_cluster(node->driver, cluster, 0, bytes_per_cluster, buf);
+        buf += bytes_per_cluster;
+        size -= bytes_per_cluster;
+        cluster  = next_cluster_index(node->driver, cluster);
+      }
+    }
+
+    read_in_cluster(node->driver, cluster, current_offset, size, buf);
 }
 
 /* Lit le nom d'un nœud et les éventuelles entrées LFN (Long File Name)
