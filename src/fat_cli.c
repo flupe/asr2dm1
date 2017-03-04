@@ -20,12 +20,36 @@ void print_help() {
 
 /* Vous pouvez éventuellement utiliser une fonction auxiliaire pour 'tree' */
 
+void log_tree(struct fat32_node *root) {
+    const char *name = fat32_node_get_name(root);
+
+    if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0) return;
+
+    if (fat32_node_is_dir(root)) {
+        printf("> %s\n", name);
+
+        struct fat32_node_list* children = fat32_node_get_children(root);
+        struct fat32_node_list* tmp = children;
+
+        while(tmp) {
+          log_tree(tmp->node);
+          tmp = tmp->next;
+        }
+
+        fat32_node_list_free(children);
+    }
+    else {
+      printf("- %s\n", name);
+    }
+    return;
+}
+
 /* Gestion de la commande "tree". */
 int tree(char* fat_disk) {
     struct fat32_driver *driver = fat32_driver_new(fat_disk);
     struct fat32_node *root = fat32_driver_get_root_dir(driver);
 
-    assert(0); // TODO: remplacez-moi
+    log_tree(root);
     //
     fat32_node_free(root);
     fat32_driver_free(driver);

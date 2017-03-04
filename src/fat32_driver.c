@@ -51,13 +51,18 @@ struct fat32_driver* fat32_driver_new(const char *image_name) {
     driver->nb_reserved_sectors = read_uint16_littleendian(fd); // 14
     driver->nb_fats = read_uint8(fd); // 16
     driver->nb_directories_at_root = read_uint16_littleendian(fd); // 17
+    driver->nb_sectors = read_uint16_littleendian(fd);
 
-    fseek(fd, 32, SEEK_SET);
-    driver->nb_sectors = read_uint32_littleendian(fd); // 32
+    if (driver->nb_sectors == 0) {
+      fseek(fd, 32, SEEK_SET);
+      driver->nb_sectors = read_uint32_littleendian(fd); // 32
+    }
+
+    fseek(fd, 36, SEEK_SET);
     driver->sectors_per_fat = read_uint32_littleendian(fd); // 36
 
     fseek(fd, 44, SEEK_SET);
-    driver->first_cluster_root = read_uint16_littleendian(fd); // 44
+    driver->first_cluster_root = read_uint32_littleendian(fd); // 44
 
 #ifdef DEBUG
     fprintf(stderr, "Bytes per sector: %d\n", driver->bytes_per_sector);
@@ -94,10 +99,10 @@ uint32_t get_cluster_sector(const struct fat32_driver *driver, uint32_t cluster_
 }
 
 void read_in_cluster(const struct fat32_driver *driver, uint32_t cluster, uint32_t offset, size_t size, uint8_t *buf) {
-    assert(offset+size <= driver->bytes_per_sector*driver->sectors_per_cluster);
+    assert(offset+size <= driver->bytes_per_sector * driver->sectors_per_cluster);
 
     uint32_t pos = get_cluster_sector(driver, cluster) * driver->bytes_per_sector + offset;
-    fseek(driver->fd, pos, SEEK_SET); 
+    fseek(driver->fd, pos, SEEK_SET);
     fread(buf, 1, size, driver->fd);
 }
 
@@ -113,16 +118,16 @@ void read_node_entry(const struct fat32_node *node, uint32_t offset, size_t size
     uint32_t bytes_per_cluster = (uint32_t) node->driver->sectors_per_cluster * node->driver->bytes_per_sector;
     uint32_t current_offset = node->offset + offset;
 
-    while (current_offset > bytes_per_cluster) {
+    while (current_offset >= bytes_per_cluster) {
       current_offset -= bytes_per_cluster;
-      cluster++;
+      cluster = next_cluster_index(node->driver, cluster);
     }
 
-    if (current_offset + size >= bytes_per_cluster) {
+    if (current_offset + size > bytes_per_cluster) {
       read_in_cluster(node->driver, cluster, current_offset, bytes_per_cluster - current_offset, buf);
       buf += bytes_per_cluster - current_offset;
       size += current_offset - bytes_per_cluster;
-      cluster  = next_cluster_index(node->driver, cluster);
+      cluster = next_cluster_index(node->driver, cluster);
       current_offset = 0;
 
       while (size > bytes_per_cluster) {
@@ -198,7 +203,31 @@ void read_name(struct fat32_node *node) {
         }
     }
     else { /* Short file name */
-        assert(0); // TODO: complete
+        uint8_t dump[11];
+
+        read_node_entry(node, 0, 11, dump);
+
+        size_t last_char = 7, next;
+        while (last_char && dump[last_char] == ' ') last_char--;
+        next = last_char + 1;
+        memcpy(node->name, dump, next); 
+
+        // find if there is an extension
+        if (dump[8] != ' ') {
+          node->name[next++] = '.';
+          memcpy(node->name + next, dump + 8, 3);
+          next += 3;
+        }
+
+        node->name[next] = '\0';
+
+        // memcpy(node->name, dump, 11);
+        // node->name[11] = 0;
+
+        // memcpy(node->name, dump, 8);
+        // node->name[8] = '.';
+        // memcpy(node->name + 9, dump + 8, 3);
+        // node->name[12] = '\0';
 
         node->nb_lfn_entries = 0;
     }
@@ -233,7 +262,8 @@ bool fat32_node_is_dir(const struct fat32_node *node) {
         return true;
     }
     else {
-        assert(0); // TODO: complete
+       uint8_t attributes = fat32_node_get_attributes(node);
+       return attributes == 0x10;
     }
 }
 
@@ -288,8 +318,13 @@ struct fat32_node* fat32_driver_get_root_dir(const struct fat32_driver *driver) 
     return root;
 }
 
+
 uint32_t get_content_cluster(const struct fat32_node *node) {
-    assert(0); // TODO: complete
+    uint8_t bytes[4];
+    read_node_entry(node, 20 + node->nb_lfn_entries*LFN_ENTRY_SIZE, 2, bytes + 2);
+    read_node_entry(node, 26 + node->nb_lfn_entries * LFN_ENTRY_SIZE, 2, bytes);
+    // not very pretty (we just assume the 2-bytes sequences are little-endian)
+    return (uint32_t) (bytes[0] | bytes[1] << 8 | bytes[2] << 16 | bytes[3] << 24);
 }
 
 struct fat32_node_list* fat32_node_get_children(const struct fat32_node *node) {
