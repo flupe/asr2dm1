@@ -80,7 +80,6 @@ struct fat32_driver* fat32_driver_new(const char *image_name) {
 }
 
 void fat32_driver_free(struct fat32_driver *driver) {
-    // ensuring the pointer is not NULL
     assert(driver);
     fclose(driver->fd);
     free(driver);
@@ -202,7 +201,8 @@ void read_name(struct fat32_node *node) {
             }
         }
     }
-    else { /* Short file name */
+    // short file name
+    else {
         uint8_t dump[11];
 
         read_node_entry(node, 0, 11, dump);
@@ -220,15 +220,6 @@ void read_name(struct fat32_node *node) {
         }
 
         node->name[next] = '\0';
-
-        // memcpy(node->name, dump, 11);
-        // node->name[11] = 0;
-
-        // memcpy(node->name, dump, 8);
-        // node->name[8] = '.';
-        // memcpy(node->name + 9, dump + 8, 3);
-        // node->name[12] = '\0';
-
         node->nb_lfn_entries = 0;
     }
 }
@@ -250,9 +241,7 @@ const char* fat32_node_get_name(const struct fat32_node *node) {
  * Ne fonctionne pas pour le nœud racine. */
 uint8_t fat32_node_get_attributes(const struct fat32_node *node) {
     uint8_t attributes;
-
     read_node_entry(node, 11+(node->nb_lfn_entries*LFN_ENTRY_SIZE), 1, &attributes);
-
     return attributes;
 }
 
@@ -339,7 +328,36 @@ struct fat32_node_list* fat32_node_get_children(const struct fat32_node *node) {
 }
 
 struct fat32_node* fat32_node_get_path(const struct fat32_node *node, const char *path) {
-    assert(0); // TODO: complete
+    assert(node);
+
+    // get rid of leading /
+    while (*path == '/') path++;
+    if (*path == 0) return NULL;
+    const char *next = path + 1;
+    while (*next != 0 && *next != '/') next++;
+
+    struct fat32_node_list *list = fat32_node_get_children(node);
+    struct fat32_node_list *tmp = list;
+
+    const char *name;
+    size_t len;
+
+    while (tmp) {
+      name = fat32_node_get_name(tmp->node);
+      len = (size_t) (next - path);
+
+      if (strlen(name) == len && strncmp(name, path, len) == 0) {
+        if (*next == 0)
+          return tmp->node;
+        else {
+          return fat32_node_get_path(tmp->node, next);
+        }
+      }
+
+      tmp = tmp->next;
+    }
+
+    return NULL;
 }
 
 void fat32_node_read_to_fd(const struct fat32_node *node, FILE *fd) {

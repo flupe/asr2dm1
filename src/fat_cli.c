@@ -20,26 +20,26 @@ void print_help() {
 
 /* Vous pouvez éventuellement utiliser une fonction auxiliaire pour 'tree' */
 
-void log_tree(struct fat32_node *root) {
+void log_tree(struct fat32_node *root, int depth) {
     const char *name = fat32_node_get_name(root);
 
     if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0) return;
 
     if (fat32_node_is_dir(root)) {
-        printf("> %s\n", name);
+        printf("%*c> %s\n", 3 * depth, ' ', name);
 
         struct fat32_node_list* children = fat32_node_get_children(root);
         struct fat32_node_list* tmp = children;
 
         while(tmp) {
-          log_tree(tmp->node);
+          log_tree(tmp->node, depth + 1);
           tmp = tmp->next;
         }
 
         fat32_node_list_free(children);
     }
     else {
-      printf("- %s\n", name);
+      printf("%*c- %s\n", 3 * depth, ' ', name);
     }
     return;
 }
@@ -49,8 +49,8 @@ int tree(char* fat_disk) {
     struct fat32_driver *driver = fat32_driver_new(fat_disk);
     struct fat32_node *root = fat32_driver_get_root_dir(driver);
 
-    log_tree(root);
-    //
+    log_tree(root, 0);
+
     fat32_node_free(root);
     fat32_driver_free(driver);
     return EXIT_SUCCESS;
@@ -61,7 +61,27 @@ int ls(char* fat_disk, char* path) {
     struct fat32_driver *driver = fat32_driver_new(fat_disk);
     struct fat32_node *root = fat32_driver_get_root_dir(driver);
 
-    assert(0); // TODO: remplacez-moi
+    struct fat32_node *node = fat32_node_get_path(root, path);
+
+    if (node == NULL || !fat32_node_is_dir(node)) {
+      fprintf(stderr, "is not a directory\n");
+      return EXIT_FAILURE;
+    }
+
+    struct fat32_node_list* children = fat32_node_get_children(node);
+    struct fat32_node_list* tmp = children;
+
+    while (tmp) {
+      printf("%s\n", fat32_node_get_name(tmp->node));
+      tmp = tmp->next;
+    }
+
+    fat32_node_list_free(children);
+    fat32_node_free(node);
+    fat32_node_free(root);
+    fat32_driver_free(driver);
+
+    return EXIT_SUCCESS;
 }
 
 /* Gestion de la commande "cat". */
@@ -70,7 +90,6 @@ int cat(char* fat_disk, char* path) {
     struct fat32_node *root = fat32_driver_get_root_dir(driver);
 
     assert(0); // TODO: remplacez-moi
-
 }
 
 int main(int argc, char* argv[]) {

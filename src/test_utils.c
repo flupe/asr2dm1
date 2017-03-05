@@ -9,7 +9,6 @@
 int main() {
   FILE *fd = fopen("./fat_cli", "r");
 
-
   printf("read_uint8: %x\n", read_uint8(fd));
   rewind(fd);
 
