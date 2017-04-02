@@ -88,8 +88,20 @@ int ls(char* fat_disk, char* path) {
 int cat(char* fat_disk, char* path) {
     struct fat32_driver *driver = fat32_driver_new(fat_disk);
     struct fat32_node *root = fat32_driver_get_root_dir(driver);
+    struct fat32_node *node = fat32_node_get_path(root, path);
 
-    assert(0); // TODO: remplacez-moi
+    if (node == NULL || fat32_node_is_dir(node)) {
+      fprintf(stderr, "does not exist or is a directory\n");
+      return EXIT_FAILURE;
+    }
+    
+    fat32_node_read_to_fd(node, stdout);
+
+    fat32_node_free(node);
+    fat32_node_free(root);
+    fat32_driver_free(driver);
+
+    return EXIT_SUCCESS;
 }
 
 int main(int argc, char* argv[]) {

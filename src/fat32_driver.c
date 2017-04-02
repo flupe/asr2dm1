@@ -34,6 +34,16 @@ struct fat32_driver {
     uint32_t sectors_per_fat;
 };
 
+struct fat32_node* copy_node(const struct fat32_node *node) {
+  struct fat32_node *clone = malloc(sizeof(struct fat32_node));
+  clone->driver = node->driver;
+  clone->first_cluster = node->first_cluster;
+  clone->offset = node->offset;
+  strcpy(clone->name, node->name);
+  clone->nb_lfn_entries = node->nb_lfn_entries;
+  clone->is_root = node->is_root;
+  return clone;
+}
 
 struct fat32_driver* fat32_driver_new(const char *image_name) {
     FILE *fd = fopen(image_name, "r");
@@ -332,7 +342,7 @@ struct fat32_node* fat32_node_get_path(const struct fat32_node *node, const char
 
     // get rid of leading /
     while (*path == '/') path++;
-    if (*path == 0) return NULL;
+    if (*path == 0) return copy_node(node);
     const char *next = path + 1;
     while (*next != 0 && *next != '/') next++;
 
@@ -340,6 +350,7 @@ struct fat32_node* fat32_node_get_path(const struct fat32_node *node, const char
     struct fat32_node_list *tmp = list;
 
     const char *name;
+    struct fat32_node *ret = NULL;
     size_t len;
 
     while (tmp) {
@@ -347,23 +358,25 @@ struct fat32_node* fat32_node_get_path(const struct fat32_node *node, const char
       len = (size_t) (next - path);
 
       if (strlen(name) == len && strncmp(name, path, len) == 0) {
-        if (*next == 0)
-          return tmp->node;
-        else {
-          return fat32_node_get_path(tmp->node, next);
-        }
+        ret = fat32_node_get_path(tmp->node, next);
+        break;
       }
 
       tmp = tmp->next;
     }
 
-    return NULL;
+    fat32_node_list_free(list);
+
+    return ret;
 }
 
 void fat32_node_read_to_fd(const struct fat32_node *node, FILE *fd) {
     uint32_t first_content_cluster = get_content_cluster(node);
 
-    uint32_t content_size; assert(0); // TODO: complete
+    
+    uint8_t buf[4];
+    read_node_entry(node, 28 + node->nb_lfn_entries * LFN_ENTRY_SIZE, 4, buf);
+    uint32_t content_size = (uint32_t) (buf[0] | buf[1] << 8 | buf[2] << 16 | buf[3] << 24);
 
     uint32_t buffer_size = (uint32_t) (node->driver->bytes_per_sector*node->driver->sectors_per_cluster);
     char buffer[buffer_size];

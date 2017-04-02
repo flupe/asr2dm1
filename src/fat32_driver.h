@@ -13,6 +13,8 @@ struct fat32_node_list {
 };
 void fat32_node_list_free(struct fat32_node_list *list);
 
+struct fat32_node* copy_node(const struct fat32_node *node);
+
 /* Crée une nouvelle structure "fat32_driver" à partir du nom d'un
  * fichier contenant une image FAT32. */
 struct fat32_driver* fat32_driver_new(const char *image_name);
